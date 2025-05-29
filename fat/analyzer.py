@@ -1,6 +1,6 @@
 import struct
-from fat.reader import read_volume_sectors
-from fat.utils import format_time, format_date, identify_file_type, get_attribute_details
+from fat.reader import read_volume_sectors, open_volume
+from fat.utils import format_time, format_date, identify_file_type, get_attribute_details, extract_fat_info
 from fat.directory import analyze_directory_structure
 
 def analyze_fat_volume(drive_letter):
@@ -152,3 +152,118 @@ def analyze_fat_volume(drive_letter):
         return False
         
     return True
+
+def check_filesystem_integrity(drive_letter, boot_sector):
+    """
+    Kiểm tra tính toàn vẹn của hệ thống file FAT và trả về danh sách vấn đề
+    """
+    issues = []
+    
+    # Kiểm tra kiểu dữ liệu boot sector
+    if not isinstance(boot_sector, (bytes, bytearray)) or len(boot_sector) < 512:
+        issues.append("Boot sector không đủ dữ liệu hoặc kiểu dữ liệu không hợp lệ")
+        return issues
+    
+    # Kiểm tra chữ ký boot sector
+    if boot_sector[510:512] != b'\x55\xAA':
+        issues.append("Boot sector không có chữ ký hợp lệ (0x55AA)")
+    
+    # Tiếp tục phân tích nếu có chữ ký hợp lệ
+    try:
+        bs_info = extract_fat_info(boot_sector)
+    except Exception as e:
+        issues.append(f"Lỗi khi phân tích boot sector: {str(e)}")
+        return issues
+    
+    # Kiểm tra các thông số boot sector hợp lý
+    if bs_info['bytes_per_sector'] not in [512, 1024, 2048, 4096]:
+        issues.append(f"Giá trị bytes per sector bất thường: {bs_info['bytes_per_sector']}")
+    
+    if bs_info['sectors_per_cluster'] not in [1, 2, 4, 8, 16, 32, 64, 128]:
+        issues.append(f"Giá trị sectors per cluster bất thường: {bs_info['sectors_per_cluster']}")
+    
+    if bs_info['num_fats'] not in [1, 2]:
+        issues.append(f"Số lượng bảng FAT bất thường: {bs_info['num_fats']}")
+    
+    # Kiểm tra tính nhất quán của các bảng FAT nếu có nhiều bảng
+    if bs_info['num_fats'] > 1:
+        fat1_start = bs_info['reserved_sectors'] * bs_info['bytes_per_sector']
+        fat_size = bs_info['sectors_per_fat'] * bs_info['bytes_per_sector']
+        
+        with open_volume(drive_letter) as volume:
+            volume.seek(fat1_start)
+            fat1_data = volume.read(fat_size)
+            
+            volume.seek(fat1_start + fat_size)
+            fat2_data = volume.read(fat_size)
+            
+            if fat1_data != fat2_data:
+                issues.append("Các bảng FAT không đồng nhất - có thể bị hỏng")
+    
+    # Kiểm tra các entry trong thư mục gốc
+    root_dir_start = bs_info['reserved_sectors'] * bs_info['bytes_per_sector'] + (bs_info['num_fats'] * bs_info['sectors_per_fat'] * bs_info['bytes_per_sector'])
+    root_dir_size = bs_info['root_entries'] * 32
+    
+    with open_volume(drive_letter) as volume:
+        volume.seek(root_dir_start)
+        root_data = volume.read(root_dir_size)
+        
+        valid_entries = 0
+        invalid_entries = 0
+        
+        for i in range(0, len(root_data), 32):
+            entry = root_data[i:i+32]
+            first_byte = entry[0]
+            
+            if first_byte == 0x00:  # End of directory
+                continue
+            elif first_byte == 0xE5:  # Deleted entry
+                continue
+            
+            # Kiểm tra thuộc tính hợp lệ
+            attr = entry[11]
+            if attr not in [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x01 | 0x02, 0x01 | 0x10, 0x02 | 0x10, 0x01 | 0x02 | 0x10]:
+                invalid_entries += 1
+            else:
+                valid_entries += 1
+                
+                # Kiểm tra tên tập tin hợp lệ
+                name = entry[0:8].replace(b' ', b'')
+                ext = entry[8:11].replace(b' ', b'')
+                
+                for c in name:
+                    if not (0x20 <= c <= 0x7E or c == 0x05):
+                        invalid_entries += 1
+                        valid_entries -= 1
+                        break
+        
+        if valid_entries == 0 and invalid_entries > 0:
+            issues.append("Không tìm thấy entry hợp lệ trong thư mục gốc")
+        elif invalid_entries > valid_entries:
+            issues.append(f"Nhiều entry không hợp lệ trong thư mục gốc ({invalid_entries}/{invalid_entries+valid_entries})")
+    
+    # Kiểm tra các giá trị bất thường trong bảng FAT
+    fat_start = bs_info['reserved_sectors'] * bs_info['bytes_per_sector']
+    fat_size = bs_info['sectors_per_fat'] * bs_info['bytes_per_sector']
+    
+    with open_volume(drive_letter) as volume:
+        volume.seek(fat_start)
+        fat_data = volume.read(fat_size)
+        
+        # FAT16: Mỗi entry = 2 bytes
+        if bs_info['fat_type'] == 16:
+            # FAT entry đầu tiên phải là 0xFF8 hoặc 0xFFF8
+            first_entry = struct.unpack("<H", fat_data[0:2])[0]
+            if first_entry not in [0xFF8, 0xFFF8]:
+                issues.append(f"Entry đầu tiên trong bảng FAT không hợp lệ: 0x{first_entry:X}")
+    
+    # Kiểm tra kích thước ổ đĩa
+    total_size = bs_info['total_sectors'] * bs_info['bytes_per_sector']
+    try:
+        actual_size = get_disk_size(drive_letter)
+        if abs(total_size - actual_size) > bs_info['bytes_per_sector'] * 10:
+            issues.append(f"Kích thước tính toán từ boot sector ({total_size} bytes) khác nhiều so với kích thước thực ({actual_size} bytes)")
+    except:
+        pass
+    
+    return issues

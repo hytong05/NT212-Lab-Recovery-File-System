@@ -1,6 +1,25 @@
 import struct
 import win32file
 import win32con
+import os
+
+def open_volume(drive_letter, mode="rb"):
+    """
+    Mở thiết bị lưu trữ để đọc/ghi dữ liệu thô.
+    
+    Args:
+        drive_letter: Chữ cái ổ đĩa (ví dụ: 'E')
+        mode: Chế độ mở (mặc định là "rb" - đọc nhị phân)
+        
+    Returns:
+        File object đã mở
+    """
+    # Trên Windows, sử dụng đường dẫn \\.\X: để mở thiết bị vật lý
+    volume_path = f"\\\\.\\{drive_letter}:"
+    try:
+        return open(volume_path, mode)
+    except Exception as e:
+        raise IOError(f"Không thể mở ổ đĩa {drive_letter} trong chế độ {mode}: {str(e)}")
 
 def read_volume_sectors(drive_letter, start_sector, num_sectors, bytes_per_sector=512):
     """Read sectors directly from a mounted volume"""

@@ -8,6 +8,7 @@ from recovery.boot_recovery import recover_boot_sector, rebuild_boot_sector
 from recovery.fat_recovery import recover_fat_from_copy, reconstruct_fat_by_scanning
 from recovery.directory_recovery import recover_root_directory, scan_for_deleted_files, recover_deleted_file
 from recovery.carving import scan_disk_for_signatures, carve_file
+from fat.analyzer import check_filesystem_integrity
 
 def main():
     parser = argparse.ArgumentParser(description="FAT volume analyzer and file extractor for mounted volumes")
@@ -18,8 +19,10 @@ def main():
     
     # New recovery options
     recovery_group = parser.add_argument_group('Recovery options')
-    recovery_group.add_argument("--recover-boot", action="store_true", 
-                               help="Recover damaged boot sector")
+    recovery_group.add_argument("--recover-boot", nargs='?', const=True, default=False, 
+                               help="Recover damaged boot sector (optionally specify FAT type: 12, 16, 32)")
+    recovery_group.add_argument("--fat-type", type=int, choices=[12, 16, 32],
+                               help="Specify FAT type for boot sector recovery (12, 16, or 32)")
     recovery_group.add_argument("--recover-fat", action="store_true", 
                                help="Recover damaged FAT from backup copy")
     recovery_group.add_argument("--scan-deleted", action="store_true", 
@@ -30,7 +33,11 @@ def main():
                                help="Scan for file signatures and carve files")
     recovery_group.add_argument("--carve-type", 
                                help="File type to carve (e.g., JPEG, PDF)")
-    
+    recovery_group.add_argument("--apply-boot", metavar="BOOT_FILE",
+                               help="Áp dụng boot sector đã khôi phục vào ổ đĩa")
+    recovery_group.add_argument("--interactive-repair", action="store_true",
+                          help="Sửa chữa boot sector với chế độ tương tác")
+
     args = parser.parse_args()
     
     # Remove any colon from the drive letter
@@ -38,9 +45,19 @@ def main():
     
     # Handle recovery options
     if args.recover_boot:
-        boot_sector = recover_boot_sector(drive_letter, args.output or "recovered_boot.bin")
-        if boot_sector:
-            print("Boot sector recovery successful")
+        from recovery.boot_recovery import compare_and_recover_boot
+        
+        # Kiểm tra xem người dùng đã chỉ định loại FAT chưa
+        fat_type = args.fat_type
+        if isinstance(args.recover_boot, str) and args.recover_boot.isdigit():
+            fat_type = int(args.recover_boot)
+            if fat_type not in [12, 16, 32]:
+                print(f"Loại FAT không hợp lệ: {fat_type}. Sử dụng 12, 16 hoặc 32.")
+                return
+        
+        boot_data = compare_and_recover_boot(drive_letter, fat_type=fat_type)
+        if boot_data:
+            print("Boot sector đã được phân tích và lưu vào file")
         return
         
     elif args.recover_fat:
@@ -169,6 +186,23 @@ def main():
                 
         return
     
+    elif args.apply_boot:
+        from fat.utils import apply_boot_sector
+        
+        if apply_boot_sector(drive_letter, args.apply_boot):
+            print("Đã áp dụng boot sector thành công!")
+            print("Hệ thống file đã được khôi phục. Hãy kiểm tra lại với lệnh:")
+            print(f"python main.py {drive_letter} -t")
+        return
+    
+    elif args.interactive_repair:
+        from recovery.boot_recovery import interactive_boot_sector_repair
+        
+        # Kiểm tra loại FAT đã được chỉ định
+        if interactive_boot_sector_repair(drive_letter, args.fat_type):
+            print("Đã hoàn tất sửa chữa boot sector tương tác.")
+        return
+    
     # Regular operation
     if args.extract:
         if not args.output:
@@ -183,7 +217,21 @@ def main():
         print("=== DIRECTORY TREE STRUCTURE ===")
         print_directory_tree({"ROOT": directory_tree})
     else:
-        analyze_fat_volume(drive_letter)
+        boot_sector = analyze_fat_volume(drive_letter)
+        
+        # After analyzing the FAT volume, check the filesystem integrity
+        from fat.reader import read_volume_sectors
+
+        # Đọc boot sector đúng cách
+        boot_sector_data = read_volume_sectors(drive_letter, 0, 1)
+        
+        # Check filesystem integrity
+        integrity_issues = check_filesystem_integrity(drive_letter, boot_sector_data)
+        
+        if integrity_issues:
+            print("\033[91m\nBạn có thể khôi phục boot sector với lệnh: python main.py E --recover-boot\033[0m")
+        else:
+            print("\033[92mKhông phát hiện vấn đề trong hệ thống file.\033[0m")
 
 if __name__ == "__main__":
     main()
