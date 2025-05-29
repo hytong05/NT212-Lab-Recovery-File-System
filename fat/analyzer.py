@@ -1,7 +1,7 @@
 import struct
-from fat_reader import read_volume_sectors
-from fat_utils import format_time, format_date, identify_file_type, get_attribute_details
-from fat_directory import analyze_directory_structure
+from fat.reader import read_volume_sectors
+from fat.utils import format_time, format_date, identify_file_type, get_attribute_details
+from fat.directory import analyze_directory_structure
 
 def analyze_fat_volume(drive_letter):
     """Analyze a FAT volume from a mounted drive"""

@@ -1,5 +1,5 @@
 import struct
-from fat_reader import read_volume_sectors, read_fat_entry
+from fat.reader import read_volume_sectors, read_fat_entry
 
 def extract_file_from_volume(drive_letter, target_file, output_path):
     """Extract a specific file from the volume to output_path"""

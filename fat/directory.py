@@ -1,6 +1,6 @@
 import struct
-from fat_reader import read_volume_sectors, read_fat_entry
-from fat_utils import format_time, format_date
+from fat.reader import read_volume_sectors, read_fat_entry
+from fat.utils import format_time, format_date
 
 def read_cluster_chain(drive_letter, start_cluster, fat_data, fat_type, 
                        data_region_start_sector, sectors_per_cluster, bytes_per_sector):
