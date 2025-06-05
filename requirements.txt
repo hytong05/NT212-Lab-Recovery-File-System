@@ -1,0 +1,19 @@
+# Requirements for FAT Recovery Tool
+# Các thư viện cần thiết cho công cụ khôi phục FAT
+
+# Core requirements (bắt buộc)
+# - Không có dependencies bên ngoài cho core functionality
+
+# Optional requirements (tùy chọn)
+pywin32>=301; sys_platform=="win32"  # Windows disk access APIs
+
+# Development requirements (phát triển)
+pytest>=6.0.0          # Unit testing
+pytest-cov>=2.0.0      # Code coverage
+black>=21.0.0           # Code formatting
+flake8>=3.8.0           # Code linting
+mypy>=0.812             # Type checking
+
+# Documentation
+sphinx>=4.0.0           # Documentation generation
+sphinx-rtd-theme>=0.5.0 # Documentation theme

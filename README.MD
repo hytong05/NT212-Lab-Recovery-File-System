@@ -1,217 +1,284 @@
-# NT212-Lab-Recovery-File-System
+# FAT Recovery Tool
 
-A Python-based toolkit for FAT file system analysis and file recovery. This project provides tools for examining FAT file system structures and extracting files from disk images or mounted volumes.
+A comprehensive tool for analyzing and recovering FAT16/FAT32 boot sectors, available in both monolithic and modular versions.
 
-## Overview
+## 🚀 Quick Start
 
-This project was developed as part of the NT212 Lab course, focusing on file system forensics and recovery techniques. The toolkit allows users to:
+### Basic Usage
+```bash
+# Using original monolithic version
+python fat_recovery.py E --recovery
 
-1. Analyze FAT file system structures (FAT12/FAT16)
-2. Extract metadata from boot sectors
-3. Examine Root Directory Entry Tables (RDET)
-4. Display complete directory trees with Long File Name support
-5. Recover deleted files from volumes
-6. Repair damaged boot sectors and FAT tables
-7. Extract individual files from FAT volumes
-8. Perform file carving based on file signatures
+# Using modular version  
+python fat_recovery_modular.py E --recovery
 
-## Features
-
-- **Boot Sector Analysis**: Extract critical information including bytes per sector, sectors per cluster, FAT type, etc.
-- **FAT Chain Analysis**: Trace file allocation chains through the FAT tables
-- **Root Directory Parsing**: Display detailed information about files and directories
-- **Directory Tree Display**: Visualize the complete directory structure in an easy-to-read tree format
-- **Long File Name Support**: Properly display and process long filenames (beyond the 8.3 format)
-- **Deleted File Recovery**: Scan for and recover deleted files from anywhere in the filesystem
-- **Boot Sector Recovery**: Identify and recover damaged boot sectors
-- **FAT Table Repair**: Restore damaged FAT tables using backup copies
-- **File Carving**: Extract files based on their binary signatures even when directory entries are damaged
-
-## System Requirements
-
-- Python 3.6 or higher
-- pywin32 library (`pip install pywin32`)
-- Windows operating system
-
-## Installation
-
-1. Clone repository:
-    ```
-    git clone https://github.com/hytong05/NT212-Lab-Recovery-File-System.git
-    cd NT212-Lab-Recovery-File-System
-    ```
-
-2. Install required libraries:
-    ```
-    pip install pywin32
-    ```
-
-## Project Structure
-
-```
-NT212-Lab-Recovery-File-System/
-├── main.py                  # Main entry point of the program
-├── README.md                # Documentation
-│
-├── fat/                     # FAT analysis module
-│   ├── __init__.py
-│   ├── analyzer.py          # Detailed FAT analysis
-│   ├── directory.py         # Directory structure handling
-│   ├── reader.py            # Device data reading
-│   ├── utils.py             # Utility functions
-│   └── parser.py            # FAT structure parsing
-│
-└── recovery/                # Data recovery module
-     ├── __init__.py
-     ├── boot_recovery.py     # Boot sector recovery
-     ├── fat_recovery.py      # FAT table recovery
-     ├── directory_recovery.py # Directory recovery
-     ├── carving.py           # File carving
-     └── signature_db.py      # File signature database
+# Info only mode
+python fat_recovery_modular.py F --info-only
 ```
 
-## Usage Examples
-
-### Example 1: Analyzing a mounted FAT volume
-```
-python main.py E
-
-=== BOOT SECTOR INFORMATION ===
-Bytes per sector: 512
-Sectors per cluster: 4
-Reserved sectors (before FAT): 1
-Number of FAT tables: 2
-Number of RDET entries: 512
-Total sectors: 8192
-Sectors per FAT: 6
-Volume size: 4194304 bytes (4.00 MB)
-FAT type: FAT16
+### Demo & Testing
+```bash
+python demo_modular.py    # Run demo
+python test_modules.py    # Run unit tests
+make demo                 # Using Makefile
+make test                 # Run tests via Makefile
 ```
 
-### Example 2: Displaying directory tree
-```
-python main.py E -t
+## 📁 Project Structure
 
-=== DIRECTORY TREE STRUCTURE ===
-ROOT
-     ├── $RECYCLE.BIN
-     │   └── DESKTOP.INI
-     ├── Lab
-     │   ├── Assignment_2
-     │   │   ├── 2.1
-     │   │   │   └── Document.pdf
-     │   │   └── 2.2
-     │   │       └── Report.docx
-     │   └── FileA.txt
-     └── System Volume Information
-          └── WPSettings.dat
 ```
-
-### Example 3: Extracting a file
-```
-python main.py E -f Document.pdf -o extracted_document.pdf
-
-Extracting: Document.pdf...
-Extracted to: extracted_document.pdf
-```
-
-### Example 4: Scanning for deleted files
-```
-python main.py E --scan-deleted
-
-=== DELETED FILES THAT MAY BE RECOVERABLE ===
-1. Lab/_ILEB.TXT (possibly FileB.txt) - 720 bytes
-2. $RECYCLE.BIN/_RAV01NO.TXT - 720 bytes
+FAT-Recovery-Tool/
+├── 📄 Core Files
+│   ├── fat_recovery.py              # Original monolithic version (607 lines)
+│   └── fat_recovery_modular.py      # Modular entry point
+├── 🧩 Modular Components  
+│   ├── constants.py                 # System constants & configuration
+│   ├── disk_utils.py               # Disk read/write utilities
+│   ├── boot_sector.py              # Boot sector processing
+│   ├── fat_analyzer.py             # Core analysis & recovery logic
+│   ├── cli.py                      # Command line interface
+│   ├── main.py                     # Alternative entry point
+│   └── __init__.py                 # Package initialization
+├── 🧪 Testing & Demo
+│   ├── test_modules.py             # Unit tests
+│   └── demo_modular.py             # Feature demonstration
+├── 📚 Documentation
+│   ├── README_modular.md           # Modular version guide
+│   ├── ANALYSIS_SUMMARY.md         # Modularization analysis
+│   ├── PROJECT_INDEX.md            # Project index
+│   └── requirements.txt            # Dependencies
+├── 🛠️ Build & Data
+│   ├── Makefile                    # Build automation
+│   └── Bonus_Lab.vhd              # Test virtual disk
 ```
 
-### Example 5: Recovering a deleted file
+## 🏗️ Architecture Overview
+
+### Module Dependencies
 ```
-python main.py E --recover-deleted FileB.txt -o recovered_file.txt
-
-Recovering file: start cluster 123, size 720 bytes
-Reading 1 clusters starting from sector 456
-Recovered 720 bytes to recovered_file.txt
+fat_recovery_modular.py
+└── cli.py
+    └── fat_analyzer.py
+        ├── boot_sector.py
+        │   ├── constants.py
+        │   └── disk_utils.py
+        └── disk_utils.py
+            └── constants.py
 ```
 
+### Key Components
 
-## FAT File System Structure
+#### 1. **Constants Module** (`constants.py`)
+- Boot signature definitions
+- Valid sector sizes and cluster counts
+- IOCTL codes and system configurations
 
-The FAT file system consists of four main regions:
+#### 2. **Disk Utilities** (`disk_utils.py`)
+```python
+class DiskReader:
+    def read_sector(sector_num, num_sectors=1)    # Read disk sectors
+    def write_sector(sector_num, data)            # Write to disk
+    def get_disk_size()                           # Multi-method size detection
+```
 
-1. **Boot Sector**: Contains essential parameters needed to access the volume
-   - Bytes per sector
-   - Sectors per cluster
-   - Number of FAT tables
-   - Number of root directory entries
-   - Total sectors
-   - Sectors per FAT
+#### 3. **Boot Sector Processing** (`boot_sector.py`)
+```python
+class BootSectorParser:
+    def parse_boot_sector(data)                   # Extract boot sector info
+    
+class BootSectorValidator:
+    def validate_boot_sector(info, disk_size=0)   # Validate boot sector
+    
+class BootSectorGenerator:
+    def generate_optimal_boot_sector(damaged, disk_size=0)  # Generate new boot sector
+```
 
-2. **File Allocation Tables (FAT)**: Contains chains of clusters for each file
-   - FAT12: 12-bit entries (for volumes < 16MB)
-   - FAT16: 16-bit entries (for volumes < 2GB)
+#### 4. **FAT Analyzer** (`fat_analyzer.py`)
+```python
+class FATAnalyzer:
+    def run_analysis()                           # Comprehensive analysis
+    def repair_boot_sector()                     # Repair damaged boot sector
+    def _display_boot_sector_info()              # Display detailed info
+```
 
-3. **Root Directory**: Fixed-size table with information about files and directories
-   - Each entry is 32 bytes
-   - Contains filename, extension, attributes, timestamps, starting cluster, size
+#### 5. **CLI Interface** (`cli.py`)
+```python
+class FATRecoveryCLI:
+    def run(args=None)                           # Main CLI entry point
+    def _handle_recovery()                       # Handle recovery operations
+```
 
-4. **Data Region**: Area where actual file and directory data is stored
-   - Organized in clusters (multiple sectors)
-   - Referenced through chains in the FAT
+## 💻 Usage Examples
 
-## Command Line Arguments
+### Command Line Interface
+```bash
+# Analyze drive E:
+python fat_recovery_modular.py E
 
-| Argument | Description |
-|--------|-------|
-| `drive` | Drive letter to analyze (e.g., E) |
-| `-t`, `--tree` | Display directory structure as a tree |
-| `-f`, `--extract FILE` | Extract a specific file |
-| `-o`, `--output PATH` | Specify output path for extracted/recovered files |
-| `--recover-boot` | Scan for and recover damaged boot sector |
-| `--recover-fat` | Recover FAT table from backup copy |
-| `--scan-deleted` | Scan for deleted files throughout the filesystem |
-| `--recover-deleted FILE` | Recover a deleted file by name or index |
-| `--carve` | Scan for file signatures and carve files |
-| `--carve-type TYPE` | Specify file type for carving (JPEG, PDF, etc.) |
+# Analyze and recover drive D:
+python fat_recovery_modular.py D --recovery
 
-## Troubleshooting
+# Information only mode
+python fat_recovery_modular.py F --info-only
+```
 
-1. **Problem**: Cannot access drive
-   **Solution**: Ensure you have administrator privileges. Run CMD or PowerShell as administrator.
+### Programmatic API
 
-2. **Problem**: Recovered file is corrupted
-   **Solution**: Check if the original data area has been overwritten. Try file carving as an alternative.
+#### High-level API
+```python
+from fat_analyzer import FATAnalyzer
 
-3. **Problem**: Cannot find deleted files
-   **Solution**: Try scanning the entire drive with `--scan-deleted`. Note that files may have been overwritten.
+# Create analyzer instance
+analyzer = FATAnalyzer('E')
 
-4. **Problem**: pywin32 module not found
-   **Solution**: Install the module using `pip install pywin32`
+# Run comprehensive analysis
+result = analyzer.run_analysis()
 
-## Technical Details
+# Repair if needed
+if result['recovery_needed']:
+    success = analyzer.repair_boot_sector()
+```
 
-### Directory Entry Structure
+#### Mid-level API
+```python
+from boot_sector import BootSectorParser, BootSectorValidator
+from disk_utils import DiskReader
 
-Each directory entry in FAT is 32 bytes with the following structure:
-- Bytes 0-7: Filename (padded with spaces)
-- Bytes 8-10: Extension (padded with spaces)
-- Byte 11: Attributes (Read-only, Hidden, System, Volume label, Directory, Archive)
-- Bytes 12-21: Reserved and system-use fields
-- Bytes 22-23: Creation time
-- Bytes 24-25: Creation date
-- Bytes 26-27: Starting cluster number
-- Bytes 28-31: File size in bytes
+# Read and parse boot sector
+reader = DiskReader('E')
+data = reader.read_sector(0)
+info = BootSectorParser.parse_boot_sector(data)
 
-### Long Filename Entries
+# Validate boot sector
+errors = BootSectorValidator.validate_boot_sector(info)
+```
 
-LFN (Long Filename) entries use a special format:
-- Byte 11: Attribute value 0x0F
-- Multiple LFN entries may be used for a single filename
-- Each entry can store up to 13 Unicode characters
+#### Low-level API
+```python
+from disk_utils import DiskReader
 
-## Authors
+reader = DiskReader('E')
+data = reader.read_sector(0)           # Read boot sector
+size = reader.get_disk_size()          # Get disk size
+reader.write_sector(0, new_data)       # Write new boot sector
+```
 
-- **Hy Tong** - [hytong05](https://github.com/hytong05)
+## 🔍 Key Features
 
-## License
+- ✅ **Multi-FAT Support**: FAT12/16/32 compatibility
+- ✅ **Smart Detection**: Multi-method disk size detection
+- ✅ **Interactive Recovery**: User-guided repair process
+- ✅ **Automatic Backup**: Safe recovery with backups
+- ✅ **Comprehensive Validation**: Thorough boot sector checking
+- ✅ **Cross-platform**: Windows/Linux compatible
+- ✅ **Well-documented**: Complete API documentation
+- ✅ **Modular Design**: Reusable components
 
-This project is licensed for educational purposes only.
+## 📊 Comparison: Monolithic vs Modular
+
+| Aspect | Original File | Modular Version |
+|--------|---------------|-----------------|
+| **Structure** | 1 file, 607 lines | 7 files, ~540 lines |
+| **Maintainability** | ⚠️ Difficult | ✅ Easy |
+| **Testability** | ❌ Hard to test individually | ✅ Easy unit testing |
+| **Reusability** | ❌ Must copy entire file | ✅ Import specific components |
+| **Readability** | ⚠️ Good | ✅ Excellent |
+| **Extensibility** | ❌ Hard to extend | ✅ Easy to extend |
+| **Documentation** | ⚠️ Basic | ✅ Comprehensive |
+| **Type Hints** | ⚠️ Partial | ✅ Complete |
+
+## 🎯 Use Cases
+
+1. **System Administrators**: Recover corrupted FAT boot sectors
+2. **Forensics Experts**: Analyze FAT file system structure
+3. **Developers**: Use components in other projects
+4. **Students**: Learn about FAT file system internals
+5. **Data Recovery**: Professional data recovery operations
+
+## 🧪 Testing
+
+### Run Tests
+```bash
+python test_modules.py    # Run all unit tests
+make test                 # Using Makefile
+```
+
+### Run Demo
+```bash
+python demo_modular.py    # Interactive demonstration
+make demo                 # Using Makefile
+```
+
+## 📦 Installation & Requirements
+
+### Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### System Requirements
+- Python 3.6+
+- pywin32 (optional, for Windows disk access)
+- Standard library: struct, os, sys, argparse, typing
+
+### Virtual Environment (Recommended)
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+pip install -r requirements.txt
+```
+
+## 🔧 Development
+
+### Build Commands
+```bash
+make demo     # Run demonstration
+make test     # Run unit tests
+make clean    # Clean up temporary files
+```
+
+### Adding New Features
+1. Create new module in appropriate category
+2. Add tests in `test_modules.py`
+3. Update documentation
+4. Test with `demo_modular.py`
+
+## 🎉 Benefits of Modularization
+
+1. **Separation of Concerns**: Each module has a clear responsibility
+2. **High Cohesion, Low Coupling**: Well-structured dependencies
+3. **Enhanced Testability**: Individual component testing
+4. **Improved Maintainability**: Easier bug fixes and updates
+5. **Code Reusability**: Components can be used in other projects
+6. **Better Documentation**: Clear API for each module
+7. **Extensibility**: Easy to add new file system support
+
+## 🔮 Future Enhancements
+
+- [ ] **Logging Module**: Comprehensive logging system
+- [ ] **Configuration Files**: External configuration support
+- [ ] **Plugin Architecture**: Extensible plugin system
+- [ ] **GUI Interface**: Graphical user interface
+- [ ] **Extended Support**: exFAT, NTFS support
+- [ ] **Parallel Processing**: Multi-threaded operations
+- [ ] **Network Drives**: Remote disk support
+- [ ] **Recovery Wizard**: Step-by-step recovery guide
+
+## 🚨 Important Notes
+
+- **Administrator Rights**: Required for direct disk access
+- **Backup First**: Always backup before recovery operations
+- **Test Environment**: Use test VHD files for experimentation
+- **Data Safety**: Tool creates automatic backups during recovery
+
+## 📄 License & Support
+
+**Version**: 1.0.0  
+**Date**: June 2025  
+**Authors**: FAT Recovery Tool Team
+
+For issues, suggestions, or contributions, please refer to the project documentation or contact the development team.
+
+---
+*This tool is designed for educational and professional data recovery purposes. Always ensure proper backups before performing recovery operations on critical data.*
